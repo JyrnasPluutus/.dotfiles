@@ -1,0 +1,451 @@
+#optirun your-application
+#sudo add-apt-repository ppa:bumblebee/stable
+#sudo apt-get update
+#sudo apt-get install bumblebee bumblebee-nvidia linux-headers-generic
+
+
+alias mkdir='mkdir -pv'
+#alias history='history | grep '
+
+alias brightness='xrandr --output eDP-1 --brightness'
+
+alias phpvers='php -v | head -n 1 | cut -c 5-7'
+
+tophp() {
+	sudo a2dismod php$(phpvers) > /dev/null
+	echo -n $(phpvers) " -> "
+	sudo a2enmod php$1 > /dev/null
+	sudo update-alternatives --set php /usr/bin/php$1 > /dev/null
+	sudo service apache2 restart > /dev/null
+	echo $(phpvers)
+}
+
+checkPath() {
+	if [[ "$1" == "$2"* ]]; 
+	then
+		echo 1
+	else
+		echo 0
+	fi
+}
+
+#START prestashop
+
+psperm() {
+	if [[ -z "$1" ]]; then # if param not set
+		path="$(pwd)"
+	else
+		if [[ $1 == "/"* ]]; then # if param has root path
+			path="$1"
+		else
+			path=$(realpath $1)
+		fi
+	fi
+
+	if [[ $(checkPath "$path" /var/www) == 1 ]]; # if param path has /var/www
+	then
+		sudo chown -R $(whoami):www-data "$path";
+		sudo chmod -R g+rwx "$path";
+		echo "Updated perms: $path";
+	else
+		echo "Not in /var/www"
+	fi
+}
+
+pssql() {
+	echo -n "UPDATE ps_configuration SET value = '$1' WHERE name='PS_SHOP_DOMAIN';
+UPDATE ps_configuration SET value = '$1' WHERE name='PS_SHOP_DOMAIN_SSL';
+UPDATE ps_shop_url SET domain = '$1', domain_ssl = '$1';
+UPDATE ps_configuration SET value = '$(whoami)@$1' WHERE value LIKE '%@%';
+UPDATE ps_customer SET email = concat('$(whoami)','+',id_customer,'@$1');
+UPDATE ps_configuration SET value = 0 WHERE name = 'PS_SSL_ENABLED';
+UPDATE ps_configuration SET value = 0 WHERE name = 'PS_SSL_ENABLED_EVERYWHERE';" | xclip -i
+}
+
+#END prestashop
+
+#START magento
+
+alias magsetup='bin/magento setup:upgrade && bin/magento setup:di:compile'
+alias magxml='bin/magento dev:urn-catalog:generate .idea/misc.xml'
+
+magpermold() {
+	if [[ $(checkPath /var/www) == 1 ]];
+	then
+		sudo chmod 777 -R var/cache || :
+		sudo chmod 777 -R var/log || :
+		sudo chmod 777 -R var/page_cache || :
+		sudo chmod 777 -R pub/static || :
+		sudo chmod 777 -R generated || :
+		sudo chmod 777 -R pub/media || :
+	else
+		echo "Not in /var/www"
+	fi
+}
+
+magperm() {
+	sudo find var vendor pub/static pub/media app/etc -type f -exec chmod g+w {} \;
+	echo "finished files, starting folders";
+	sudo find var vendor pub/static pub/media app/etc -type d -exec chmod g+ws {} \;
+	echo "finished folders";
+}
+
+magssd() {
+	bin/magento s:s:d en_US ${@:+ "$@"} -f
+}
+
+magresetall() {
+	sudo chown -R www-data:$(whoami) ./
+	rm -rf pub/static/frontend/* pub/static/adminhtml/*
+	magsetup
+	magssd ${@:+ "$@"}
+	bin/magento c:f 
+	bin/magento ind:rei
+	magperm
+}
+
+magsql() {
+	echo -n "UPDATE customer_entity SET email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE core_config_data SET value = concat('jurnas@lumav.com') WHERE value LIKE '%@%';
+UPDATE sales_shipment_grid SET customer_email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE sales_order SET customer_email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE sales_order_grid SET customer_email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE sales_order_address SET email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE sales_invoice_grid SET customer_email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE quote_address SET email = concat('jurnas','+',address_id,'@lumav.com');
+UPDATE quote SET customer_email = concat('jurnas','+',entity_id,'@lumav.com');
+UPDATE newsletter_subscriber SET subscriber_email = concat('jurnas','+',subscriber_id,'@lumav.com');
+UPDATE email_contact SET email = concat('jurnas','+',customer_id,'@lumav.com');" | xclip -i
+}
+#END magento
+
+#START virtsite
+
+virtsite() {
+	if [[ -z "$1" || -z "$2" ]];
+	then
+		echo "enter site name and php vers"
+	else
+		echo -n "<VirtualHost *:80>
+    ServerAdmin admin@$1
+    ServerName $1
+    ServerAlias www.$1
+    DocumentRoot /var/www/$1/public_html
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+    <FilesMatch \.php\$>
+        # Apache 2.4.10+ can proxy to unix socket
+        SetHandler "proxy:unix:/var/run/php/php$2-fpm.sock\|fcgi://localhost/"
+    </FilesMatch>
+</VirtualHost>" > /etc/apache2/sites-available/"$1".conf
+
+		sudo chown $(whoami):www-data /etc/apache2/sites-available/"$1".conf
+		sudo a2ensite "$1".conf > /dev/null
+
+		echo "127.0.0.1	$1" | sudo tee -a /etc/hosts > /dev/null
+
+		mkdir -pv /var/www/"$1"/public_html
+
+		sudo systemctl reload apache2 > /dev/null
+		echo "created " $1""
+		cd /var/www/$1
+		psperm
+	fi
+}
+
+delvirtsite() {
+	sudo a2dissite $1.conf
+	sudo rm /etc/apache2/sites-available/"$1.conf"
+	sudo rm -r /var/www/"$1"/
+
+	sudo sed -i  "/$1/d" /etc/hosts
+
+	sudo systemctl reload apache2 > /dev/null
+	echo "deleted " $1 ""
+}
+
+virtsub() {
+	if [[ -z "$1" || -z "$2" ]];
+	then
+		echo "enter top domain name and subdomain name"
+	else
+		echo -n "<VirtualHost *:80>
+    ServerName $2
+    ServerAlias www.$2
+    DocumentRoot /var/www/$1/public_html
+</VirtualHost>" >> /etc/apache2/sites-available/$1.conf 
+
+		echo "127.0.0.1	$2" | sudo tee -a /etc/hosts > /dev/null
+
+		sudo systemctl reload apache2 > /dev/null
+		echo "created subdomain \"$2\" for \"$1\""
+	fi
+}
+#END virtsite
+
+#START phpmyadmin
+pma-update() {
+	if [[ -z "$1" ]];
+	then
+		echo "enter pma vers"
+	else
+		sudo rm -rf /usr/share/phpmyadmin > /dev/null
+		sudo wget -P /usr/share/ "https://files.phpmyadmin.net/phpMyAdmin/$1/phpMyAdmin-$1-english.zip" -o /dev/null
+		sudo unzip /usr/share/phpMyAdmin-$1-english.zip > /dev/null
+		sudo mv phpMyAdmin-$1-english/* phpmyadmin
+		sudo rm /usr/share/phpMyAdmin-$1-english.zip > /dev/null
+
+		sudo mkdir -pv /usr/share/phpmyadmin/tmp > /dev/null
+		sudo chown www-data:www-data -R /usr/share/phpmyadmin/tmp > /dev/null
+
+		random=$(char32)
+		echo "$random"
+		sudo cp /usr/share/phpmyadmin/config.sample.inc.php /usr/share/phpmyadmin/config.inc.php
+		sudo cat /usr/share/phpmyadmin/config.inc.php |sed -i "s#\$cfg\['blowfish_secret'\] = ''#\$cfg\['blowfish_secret'\] = '$random'#g" /usr/share/phpmyadmin/config.inc.php
+		sudo cat /usr/share/phpmyadmin/config.inc.php |sed -i "s#\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\] = false;#\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\] = true;#g" /usr/share/phpmyadmin/config.inc.php
+		
+		echo "done"
+	fi
+}
+
+char32() {
+	cat /dev/urandom | tr -dc "a-zA-Z0-9!@#%^&*b()_+?>~;" | fold -w 32 | head -n 1
+}
+#END phpmyadmin
+
+sshs() {
+        ssh $@ "cat > /tmp/.bashrc_temp" < ~/.bashrc
+        ssh -t $@ "hostname ; bash --rcfile /tmp/.bashrc_temp ; rm /tmp/.bashrc_temp"
+}
+
+#optirun your-application
+#sudo add-apt-repository ppa:bumblebee/stable
+#sudo apt-get update
+#sudo apt-get install bumblebee bumblebee-nvidia linux-headers-generic
+
+
+alias mkdir='mkdir -pv'
+#alias history='history | grep '
+
+alias phpvers='php -v | head -n 1 | cut -c 5-7'
+
+tophp() {
+	sudo a2dismod php$(phpvers) > /dev/null
+	echo -n $(phpvers) " -> "
+	sudo a2enmod php$1 > /dev/null
+	sudo update-alternatives --set php /usr/bin/php$1 > /dev/null
+	sudo service apache2 restart > /dev/null
+	echo $(phpvers)
+}
+
+checkPath() {
+	if [[ "$1" == "$2"* ]]; 
+	then
+		echo 1
+	else
+		echo 0
+	fi
+}
+
+#START prestashop
+#
+#psperm() {
+#	if [[ -z "$1" ]]; then # if param not set
+#		path="$(pwd)"
+#	else
+#		if [[ $1 == "/"* ]]; then # if param has root path
+#			path="$1"
+#		else
+#			path=$(realpath $1)
+#		fi
+#	fi
+#
+#	if [[ $(checkPath "$path" /var/www) == 1 ]]; # if param path has /var/www
+#	then
+#		sudo chown -R $(whoami):www-data "$path";
+#		sudo chmod -R g+rwx "$path";
+#		echo "Updated perms: $path";
+#	else
+#		echo "Not in /var/www"
+#	fi
+#}
+#
+#pssql() {
+#	echo -n "UPDATE ps_configuration SET value = '$1' WHERE name='PS_SHOP_DOMAIN';
+#UPDATE ps_configuration SET value = '$1' WHERE name='PS_SHOP_DOMAIN_SSL';
+#UPDATE ps_shop_url SET domain = '$1', domain_ssl = '$1';
+#UPDATE ps_configuration SET value = '$(whoami)@$1' WHERE value LIKE '%@%';
+#UPDATE ps_customer SET email = concat('$(whoami)','+',id_customer,'@$1');
+#UPDATE ps_configuration SET value = 0 WHERE name = 'PS_SSL_ENABLED';
+#UPDATE ps_configuration SET value = 0 WHERE name = 'PS_SSL_ENABLED_EVERYWHERE';" | xclip -i
+#}
+#
+#END prestashop
+
+#START magento
+
+alias magcf='echo -n "rm -rf generated/*  && rm -rf pub/static/* && rm -rf var/view_preprocessed/* &&  php bin/magento c:f" | xclip -i'
+#alias magxml='bin/magento dev:urn-catalog:generate .idea/misc.xml'
+
+#magpermold() {
+#	if [[ $(checkPath /var/www) == 1 ]];
+#	then
+#		sudo chmod 777 -R var/cache || :
+#		sudo chmod 777 -R var/log || :
+#		sudo chmod 777 -R var/page_cache || :
+#		sudo chmod 777 -R pub/static || :
+#		sudo chmod 777 -R generated || :
+#		sudo chmod 777 -R pub/media || :
+#	else
+#		echo "Not in /var/www"
+#	fi
+#}
+#
+#magperm() {
+#	sudo find var vendor pub/static pub/media app/etc -type f -exec chmod g+w {} \;
+#	echo "finished files, starting folders";
+#	sudo find var vendor pub/static pub/media app/etc -type d -exec chmod g+ws {} \;
+#	echo "finished folders";
+#}
+#
+#magssd() {
+#	bin/magento s:s:d en_US ${@:+ "$@"} -f
+#}
+#
+#magresetall() {
+#	sudo chown -R www-data:$(whoami) ./
+#	rm -rf pub/static/frontend/* pub/static/adminhtml/*
+#	magsetup
+#	magssd ${@:+ "$@"}
+#	bin/magento c:f 
+#	bin/magento ind:rei
+#	magperm
+#}
+
+#START virtsite
+#
+#virtsite() {
+#	if [[ -z "$1" || -z "$2" ]];
+#	then
+#		echo "enter site name and php vers"
+#	else
+#		echo -n "<VirtualHost *:80>
+#    ServerAdmin admin@$1
+#    ServerName $1
+#    ServerAlias www.$1
+#    DocumentRoot /var/www/$1/public_html
+#    ErrorLog \${APACHE_LOG_DIR}/error.log
+#    CustomLog \${APACHE_LOG_DIR}/access.log combined
+#    <FilesMatch \.php\$>
+#        # Apache 2.4.10+ can proxy to unix socket
+#        SetHandler "proxy:unix:/var/run/php/php$2-fpm.sock\|fcgi://localhost/"
+#    </FilesMatch>
+#</VirtualHost>" > /etc/apache2/sites-available/"$1".conf
+#
+#		sudo chown $(whoami):www-data /etc/apache2/sites-available/"$1".conf
+#		sudo a2ensite "$1".conf > /dev/null
+#
+#		echo "127.0.0.1	$1" | sudo tee -a /etc/hosts > /dev/null
+#
+#		mkdir -pv /var/www/"$1"/public_html
+#
+#		sudo systemctl reload apache2 > /dev/null
+#		echo "created " $1""
+#		cd /var/www/$1
+#		psperm
+#	fi
+#}
+#
+#delvirtsite() {
+#	sudo a2dissite $1.conf
+#	sudo rm /etc/apache2/sites-available/"$1.conf"
+#	sudo rm -r /var/www/"$1"/
+#
+#	sudo sed -i  "/$1/d" /etc/hosts
+#
+#	sudo systemctl reload apache2 > /dev/null
+#	echo "deleted " $1 ""
+#}
+#
+#virtsub() {
+#	if [[ -z "$1" || -z "$2" ]];
+#	then
+#		echo "enter top domain name and subdomain name"
+#	else
+#		echo -n "<VirtualHost *:80>
+#    ServerName $2
+#    ServerAlias www.$2
+#    DocumentRoot /var/www/$1/public_html
+#</VirtualHost>" >> /etc/apache2/sites-available/$1.conf 
+#
+#		echo "127.0.0.1	$2" | sudo tee -a /etc/hosts > /dev/null
+#
+#		sudo systemctl reload apache2 > /dev/null
+#		echo "created subdomain \"$2\" for \"$1\""
+#	fi
+#}
+#END virtsite
+
+#START phpmyadmin
+#pma-update() {
+#	if [[ -z "$1" ]];
+#	then
+#		echo "enter pma vers"
+#	else
+#		sudo rm -rf /usr/share/phpmyadmin > /dev/null
+#		sudo wget -P /usr/share/ "https://files.phpmyadmin.net/phpMyAdmin/$1/phpMyAdmin-$1-english.zip" -o /dev/null
+#		sudo unzip /usr/share/phpMyAdmin-$1-english.zip > /dev/null
+#		sudo mv phpMyAdmin-$1-english/* phpmyadmin
+#		sudo rm /usr/share/phpMyAdmin-$1-english.zip > /dev/null
+#
+#		sudo mkdir -pv /usr/share/phpmyadmin/tmp > /dev/null
+#		sudo chown www-data:www-data -R /usr/share/phpmyadmin/tmp > /dev/null
+#
+#		random=$(char32)
+#		echo "$random"
+#		sudo cp /usr/share/phpmyadmin/config.sample.inc.php /usr/share/phpmyadmin/config.inc.php
+#		sudo cat /usr/share/phpmyadmin/config.inc.php |sed -i "s#\$cfg\['blowfish_secret'\] = ''#\$cfg\['blowfish_secret'\] = '$random'#g" /usr/share/phpmyadmin/config.inc.php
+#		sudo cat /usr/share/phpmyadmin/config.inc.php |sed -i "s#\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\] = false;#\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\] = true;#g" /usr/share/phpmyadmin/config.inc.php
+#		
+#		echo "done"
+#	fi
+#}
+
+char32() {
+	cat /dev/urandom | tr -dc "a-zA-Z0-9!@#%^&*b()_+?>~;" | fold -w 32 | head -n 1
+}
+#END phpmyadmin
+
+tempgit() {
+	echo -n "git -c user.name='Jürnas Pluutus' -c user.email='jurnas.pluutus@lumav.com' commit -m \"\"" | xclip -i
+}
+
+#sshs() {
+#  scp ~/.bashrc_serv $1:/tmp/.bashrc_temp
+#  ssh -t $1 "bash --rcfile /tmp/.bashrc_temp"
+#}
+
+sshs() {
+  scp ~/.bashrc_serv $1:~/.bashrc_jurnas
+  ssh -t $1 "source ~/.bashrc_jurnas && rm ~/.bash_jurnas"
+}
+
+skipdefiner() {
+	echo "sed -i 's/DEFINER=[^*]*\*/\*/g' dump.sql"
+}
+
+magcron() {
+	echo "/usr/local/php$2/bin/php$2 /home/work$2/www/$1/bin/magento cron:run && /usr/local/php$2/bin/php$2 /home/work$2/www/$1/update/cron.php && /usr/local/php$2/bin/php$2 /home/work$2/www/$1/bin/magento setup:cron:run"
+}
+
+magcron2() {
+	echo "php ./bin/magento cron:run | grep -v \"Ran jobs by schedule\" >> ./var/log/magento.cron.log && php ./bin/magento setup:cron:run >> ./var/log/setup.cron.log && php ./update/cron.php >> ./var/log/update.cron.log"
+}
+
+lumavvpn() {
+	cd /etc/openvpn/JurnasPluutusLumav && sudo openvpn --config kontor-gw.lumav.com.ovpn
+}
+
+myssh () {
+	ssh $1 2>&1 | tee -a ~jyrnas/Public/linux_admin/log/$1.log;
+}
