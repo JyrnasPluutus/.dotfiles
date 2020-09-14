@@ -4,6 +4,10 @@ set history=500
 filetype plugin on
 filetype indent on
 
+set noswapfile
+" shit universal path definition
+set path=.,**
+
 " Set to  auto read when a file is cahnged from the outside
 set autoread
 au FocusGained,BufEnter * checktime
