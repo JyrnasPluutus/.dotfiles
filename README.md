@@ -7,4 +7,6 @@
  - `cd ~`
  - `git clone git@github.com:JyrnasPluutus/dotfiles.git`
  - `cd dotfiles`
- - `stow polybar (or i3, rofi, dmenu, etc.)`
+ - `stow *`
+ - or `stow vim (or bash, etc.)`
+
