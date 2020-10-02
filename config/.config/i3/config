@@ -353,3 +353,6 @@ bindsym XF86MonBrightnessDown exec ~/.config/polybar/scripts/brightness-osd down
 
 # picom
 exec_always --no-startup-id killall flashfocus; flashfocus
+
+# alternating layout
+exec --no-startup-id ~/.config/alternating-layouts/alternating-layouts.py
