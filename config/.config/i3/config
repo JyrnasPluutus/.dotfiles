@@ -324,7 +324,7 @@ bindsym $mod+m exec "/usr/local/bin/switch-audio-port"
 
 # rofi bindings simple menu
 #bindsym F9 exec rofi -modi drun -show drun -lines 7
-#bindsym F10 exec rofi -show run   -lines 7
+bindsym F10 exec rofi -show run   -lines 7
 #bindsym F12 exec rofi -show window -lines 7
 
 # Lock the system
@@ -336,17 +336,17 @@ bindsym $mod+i exec rofi -modi drun -show drun -line-padding 4 \
                 -columns 2 -padding 50 -hide-scrollbar \
                 -show-icons -drun-icon-theme "Arc-X-D" -font "Droid Sans Regular 10"
                 
-bindsym F9 exec rofi -modi drun -show drun -line-padding 4 \
-                -columns 2 -padding 50 -hide-scrollbar \
-                -show-icons -drun-icon-theme "Arc-X-D" -font "Droid Sans Regular 10"
+#bindsym F9 exec rofi -modi drun -show drun -line-padding 4 \
+#                -columns 2 -padding 50 -hide-scrollbar \
+#                -show-icons -drun-icon-theme "Arc-X-D" -font "Droid Sans Regular 10"
 
 bindsym $mod+o exec rofi -show window -line-padding 4 \
                 -lines 6 -padding 50 -hide-scrollbar \
                 -show-icons -drun-icon-theme "Arc-X-D" -font "Droid Sans Regular 10"
 
-bindsym F10 exec rofi -show window -line-padding 4 \
-                -lines 6 -padding 50 -hide-scrollbar \
-                -show-icons -drun-icon-theme "Arc-X-D" -font "Droid Sans Regular 10"                
+#bindsym F10 exec rofi -show window -line-padding 4 \
+#                -lines 6 -padding 50 -hide-scrollbar \
+#                -show-icons -drun-icon-theme "Arc-X-D" -font "Droid Sans Regular 10"                
                 
 # Brightness
 bindsym XF86MonBrightnessUp exec ~/.config/polybar/scripts/brightness-osd up
