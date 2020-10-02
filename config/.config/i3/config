@@ -117,16 +117,20 @@ bindsym $mod+a focus parent
 # focus the child container
 #bindsym $mod+d focus child
 #workspace-edit
-set $ws2 ""
-set $ws3 ""
-set $ws4 ""
-set $ws5 ""
-set $ws6 ""
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
+set $ws4 "4"
+set $ws5 "5"
+set $ws6 "6"
+set $ws7 "7"
 
 bindsym $mod+s exec --no-startup-id ~/.config/i3/scripts/empty_workspace.sh
 
 #autostart start applications
 #bind program to workspace
+assign [class="youtubemusic-nativefier-(\d{6})"] $ws1
+for_window [class=youtubemusic-nativefier-(\d{6})] focus
 assign [class="Xfce4-terminal"] $ws2
 for_window [class=Xfce4-terminal] focus
 assign [class="(?i)firefox"] $ws3
@@ -140,6 +144,7 @@ for_window [class=TelegramDesktop] focus
 
 # Autostart apps
 exec --no-startup-id sleep 2 && xfce4-terminal
+exec --no-startup-id youtubemusic-nativefier
 #exec --no-startup-id firefox
 #exec --no-startup-id sleep 3 && thunar
 exec --no-startup-id blueberry-tray
@@ -189,14 +194,22 @@ bindsym --whole-window --border $mod+shift+button4 resize shrink width 5 px or 5
 bindsym --whole-window --border $mod+shift+button5 resize grow width 5 px or 5 ppt
 
 # switch to workspace
+bindsym $mod+1 workspace $ws1
 bindsym $mod+2 workspace $ws2
 bindsym $mod+3 workspace $ws3
 bindsym $mod+4 workspace $ws4
+bindsym $mod+5 workspace $ws5
+bindsym $mod+6 workspace $ws6
+bindsym $mod+7 workspace $ws7
 
 # move focused container to workspace
+bindsym $mod+Shift+1 move container to workspace $ws1
 bindsym $mod+Shift+2 move container to workspace $ws2
 bindsym $mod+Shift+3 move container to workspace $ws3
 bindsym $mod+Shift+4 move container to workspace $ws4
+bindsym $mod+Shift+5 move container to workspace $ws5
+bindsym $mod+Shift+6 move container to workspace $ws6
+bindsym $mod+Shift+7 move container to workspace $ws7
 
 # reload the configuration file
 bindsym $mod+Shift+c reload
