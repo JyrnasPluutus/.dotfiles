@@ -442,10 +442,6 @@ magcron2() {
 	echo "php ./bin/magento cron:run | grep -v \"Ran jobs by schedule\" >> ./var/log/magento.cron.log && php ./bin/magento setup:cron:run >> ./var/log/setup.cron.log && php ./update/cron.php >> ./var/log/update.cron.log"
 }
 
-lumavvpn() {
-	cd /etc/openvpn/JurnasPluutusLumav && sudo openvpn --config kontor-gw.lumav.com.ovpn
-}
-
 myssh () {
 	ssh $1 2>&1 | tee -a ~jyrnas/Public/linux_admin/log/$1.log;
 }
