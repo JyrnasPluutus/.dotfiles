@@ -48,6 +48,8 @@ call plug#begin('~/.vim/plugged')
 " ctags https://github.com/ludovicchabant/vim-gutentags
 Plug 'ludovicchabant/vim-gutentags'
 
+Plug 'preservim/nerdcommenter'
+
 call plug#end()
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

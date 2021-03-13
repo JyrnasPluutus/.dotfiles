@@ -1,3 +1,5 @@
+export PATH="$PATH:$HOME/.dotnet/tools:$HOME/.cargo/bin"
+
 #optirun your-application
 #sudo add-apt-repository ppa:bumblebee/stable
 #sudo apt-get update
