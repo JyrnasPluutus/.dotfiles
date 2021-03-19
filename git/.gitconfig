@@ -1,0 +1,15 @@
+[user]
+	email = JyrnasPluutus@gmail.com
+	name = Jürnas Pluutus
+[alias]
+	co = checkout
+    st = status
+    me = merge
+    pl = pull
+    ph = push
+    undo-commit = reset --soft HEAD^
+    curr-branch = !git symbolic-ref --short HEAD
+    pushb = !git push origin `git curr-branch`
+    set-upstream = !git branch --set-upstream-to=origin/`git curr-branch`
+[core]
+    excludesfile = ~/.gitignore_global
