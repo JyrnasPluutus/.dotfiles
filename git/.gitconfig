@@ -2,7 +2,8 @@
 	email = JyrnasPluutus@gmail.com
 	name = Jürnas Pluutus
 [alias]
-	co = checkout
+    ch = checkout
+    co = commit
     st = status
     me = merge
     pl = pull
